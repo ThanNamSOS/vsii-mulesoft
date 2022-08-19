@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="0c0297c3-1b86-425c-8a51-6a7996837d9c" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="95093d84-8b30-4791-a58e-c92a328b2187" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="123456" database="vsiimulesoft" />
+	</db:config>
+	<flow name="select-accoun-all" doc:id="ed025bf9-7124-49da-8f62-f615b4bd2acd" >
+		<http:listener doc:name="Listener" doc:id="1a8bb652-80d2-4656-8c29-f72ed418394f" path="/hello" outputMimeType="application/avro" config-ref="HTTP_Listener_config" allowedMethods="GET"/>
+		<db:select doc:name="Select" doc:id="7b2ab672-8d5d-4274-8fd9-4d4bd5b95252" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from Accounts]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="88659ead-892a-43b2-b999-9f26439dc3fa" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="37abdf88-7b8b-4f2a-9124-61bd92a753e1" >
+				<set-payload value="Select false" doc:name="Set Payload" doc:id="7cfe08ff-5425-44bf-b59b-db455b233a02" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="select_mule_byID" doc:id="cc06d72b-79bf-45c6-ad9b-100abe4ffb0c" >
+		<http:listener doc:name="SELECT_BY_ID" doc:id="e9c01b9c-2b88-45a0-8976-73a41e59d05b" config-ref="HTTP_Listener_config" path="/accounts/{id}" outputMimeType="application/avro" allowedMethods="GET" />
+		<db:select doc:name="Copy_of_Select" doc:id="4afc309e-bad2-4f64-a15b-e253a9f2ba16" config-ref="Database_Config" >
+			<db:sql ><![CDATA[select * from Accounts where id = :id;]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	id: attributes.uriParams.id
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="1395555f-bd4a-485a-ab20-f646f2cb4f44" >
+			<when expression="#[payload.id == null]">
+				<ee:transform doc:name="Transform Message" doc:id="d04a8428-3515-4b5a-9c07-a697fb287ccf" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":"account null"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Copy_of_Transform Message" doc:id="7f7541f5-ca12-4e6b-9268-d6bd45fb23bd">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="2bac0ad6-aa51-47b5-8740-818666156544" >
+				<set-payload value="select by id false" doc:name="Set Payload" doc:id="7282b19a-faf7-43bd-be57-654574c9127d" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="Delete_by_id" doc:id="d9a3a61e-e2c7-4689-991a-7b8db2c772ac" >
+		<http:listener doc:name="Delete_by_id" doc:id="8d210b18-f73b-47a6-9903-985d67edeedd" config-ref="HTTP_Listener_config" path="/delete/{id}" outputMimeType="application/avro" allowedMethods="get" />
+		<ee:transform doc:name="Transform Message" doc:id="f1428fe9-fada-4bf9-b1c7-f2015440d4e2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="id" ><![CDATA[%dw 2.0
+output application/json
+---
+attributes.uriParams.id]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<db:select doc:name="Select" doc:id="6571dcd7-23fb-43a1-8cf9-4267f855fe89" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from Accounts where id = :id;]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	id: vars.id
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="749c4c23-7d52-498f-a92f-249e8771c2fd" >
+			<when expression="#[payload.Username == null]">
+				<ee:transform doc:name="Transform Message" doc:id="b42c3d6b-42c7-423a-9fbf-c241842899aa" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message0": "account null"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<db:delete doc:name="Delete" doc:id="743f97bd-c6e3-4d75-95a5-4866a68290e5" config-ref="Database_Config">
+			<db:sql><![CDATA[delete from Accounts where id = :id;]]></db:sql>
+			<db:input-parameters><![CDATA[#[{
+	id: vars.id
+}]]]></db:input-parameters>
+		</db:delete>
+				<ee:transform doc:name="Transform Message" doc:id="aa496420-944c-4af8-a1c8-a50536579017">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":"delete successfully!"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5953c2c1-52d7-40a2-984f-dc2460ccc613" >
+				<ee:transform doc:name="Transform Message" doc:id="c44ffa31-82b3-4d48-b434-0878960f3967" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":"Delete by id false"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="Insert_Account" doc:id="2f8875fb-1285-4c52-b2a5-a869bf7cbf4f" >
+		<http:listener doc:name="Insert" doc:id="4eb14eaf-24f2-4ca3-ac89-29ea03b786aa" config-ref="HTTP_Listener_config" path="/add" outputMimeType="application/json" allowedMethods="POST" />
+		<choice doc:name="Choice" doc:id="cf039e2c-8205-47b6-aab0-5ee219b32c85" >
+			<when expression="#[payload.username == null]">
+				<ee:transform doc:name="Transform Message" doc:id="caa7307d-6ca2-4c9e-b19f-a570d2f4b6df" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":"invald username"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<db:insert doc:name="Insert" doc:id="f49f3c11-79bb-4723-a4d3-c7933592a8ef" config-ref="Database_Config">
+			<db:sql><![CDATA[INSERT INTO Accounts (Username, Password) VALUES (:username, :password);]]></db:sql>
+			<db:input-parameters><![CDATA[#[output application/java
+---
+{
+	username: payload.username,
+	password: payload.password
+}]]]></db:input-parameters>
+		</db:insert>
+				<ee:transform doc:name="Transform Message" doc:id="f55dc406-90b8-4aaa-a433-411b4a3c3b1a">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "ok"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="17fea666-b0a0-46c5-9a47-8ffe7c594048" >
+				<ee:transform doc:name="Transform Message" doc:id="86be6987-6114-44d1-a841-2e66b161d93d" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":"insert account false"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="update-account" doc:id="19844053-8ddb-47a1-8382-f450c732b9ff" >
+		<http:listener doc:name="Update_Listener" doc:id="0d1d1cd4-d0d2-4c8d-a5f8-e4676a8ebe2b" config-ref="HTTP_Listener_config" path="/update/{id}" outputMimeType="application/json" allowedMethods="POST" />
+		<ee:transform doc:name="Transform Message" doc:id="59a5cada-8048-4f82-a44c-8258eb4ff629" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="id" ><![CDATA[%dw 2.0
+output application/java
+---
+attributes.uriParams.id]]></ee:set-variable>
+				<ee:set-variable variableName="username" ><![CDATA[%dw 2.0
+output application/json
+---
+payload[0]
+]]></ee:set-variable>
+				<ee:set-variable variableName="password" ><![CDATA[%dw 2.0
+output application/json
+---
+payload[1]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<db:select doc:name="Select" doc:id="ff9fef54-954d-4e07-8389-bf236c5328a2" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from Accounts where id = :id;]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	id: vars.id
+}]]]></db:input-parameters>
+		</db:select>
+		<logger level="INFO" doc:name="Logger" doc:id="75096d3e-bce0-4595-8856-b4e1e2344d45" message="#[vars.username]"/>
+		<choice doc:name="Choice" doc:id="c29beaf7-3bc2-4214-8769-ba3297081def" >
+			<when expression="#[vars.id == null]">
+				<ee:transform doc:name="Transform Message" doc:id="f7933968-22a9-4c49-9025-2611e24caaac" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":"update false because account null!"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<db:update doc:name="Update" doc:id="bfc814e3-e638-4da1-80d4-184fad4a1bc2" config-ref="Database_Config">
+			<db:sql><![CDATA[update Accounts set Username = :Username , Password = :Password where id = :id]]></db:sql>
+					<db:input-parameters ><![CDATA[#[{	id: vars.id,
+	Username: vars.Username,
+	Password: vars.Password
+}]]]></db:input-parameters>
+		</db:update>
+				<ee:transform doc:name="Copy_of_Transform Message" doc:id="04de12e3-6ff8-4912-b154-bb790119a0ac">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "update account successfully"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="147894a1-2e2e-4da3-9713-060ed49b1a00" >
+				<ee:transform doc:name="Transform Message" doc:id="154ac217-80de-44cc-9d53-29eb1663a3ab" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":"update account false"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
